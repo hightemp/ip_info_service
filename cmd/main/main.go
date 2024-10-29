@@ -24,12 +24,14 @@ func main() {
 		logger.Panic("%v", err)
 	}
 
+	logger.LogInfo("Trying to load data from json")
 	err = data_parser.Load()
 
 	if err != nil {
 		logger.Panic("Can't load data: %v", err)
 	}
 
+	logger.LogInfo("Trying to load data from yaml")
 	err = ip_range.Load()
 
 	if err != nil {

@@ -1,11 +1,11 @@
 package ip_range
 
 import (
-	"net"
 	"os"
 	"sort"
 	"sync"
 
+	"github.com/hightemp/ip_info_service/internal/logger"
 	"github.com/hightemp/ip_info_service/internal/utils"
 	"gopkg.in/yaml.v3"
 )
@@ -19,6 +19,7 @@ type IpRange struct {
 var (
 	contriesRanges []IpRange
 	orgRanges      []IpRange
+	Loaded         = false
 )
 
 func AddCountry(name string, start uint32, end uint32) {
@@ -32,16 +33,12 @@ func AddOrganization(name string, start uint32, end uint32) {
 }
 
 func AddCountriesRanges(ranges []IpRange) {
-	for _, r := range ranges {
-		contriesRanges = append(contriesRanges, r)
-	}
+	contriesRanges = append(contriesRanges, ranges...)
 	SortCountriesRanges()
 }
 
 func AddOrganizationsRanges(ranges []IpRange) {
-	for _, r := range ranges {
-		orgRanges = append(orgRanges, r)
-	}
+	orgRanges = append(orgRanges, ranges...)
 	SortOrgRanges()
 }
 
@@ -66,13 +63,20 @@ func binarySearch(arr []IpRange, ipInt uint32) string {
 	var result = "Unknown"
 	left, right := uint32(0), uint32(len(arr)-1)
 
-	for right > left {
-		mid := (left + right) / 2
+	if len(arr) == 0 {
+		return result
+	}
+
+	for left <= right {
+		mid := left + (right-left)/2
 		if arr[mid].StartIP <= ipInt && arr[mid].EndIp >= ipInt {
 			result = arr[mid].Name
 			break
 		}
 		if arr[mid].StartIP > ipInt {
+			if mid == 0 {
+				break
+			}
 			right = mid - 1
 		} else {
 			left = mid + 1
@@ -82,12 +86,11 @@ func binarySearch(arr []IpRange, ipInt uint32) string {
 	return result
 }
 
-func SearchIpInfo(ipv4 string) (string, string) {
+func SearchIpInfo(ip string) (string, string) {
 	var country string
 	var organization string
 
-	ip := net.ParseIP(ipv4)
-	ipInt := utils.Ip2int(ip)
+	ipInt := utils.IpStringToInt(ip)
 
 	var wg sync.WaitGroup
 
@@ -134,6 +137,11 @@ func Save() error {
 }
 
 func Load() error {
+	if Loaded {
+		logger.LogInfo("Data was loaded from json. There is no need load from yaml")
+		return nil
+	}
+
 	if _, err := os.Stat(COUNRIES_DATA_YAML_FILE); err == nil {
 		data, err := os.ReadFile(COUNRIES_DATA_YAML_FILE)
 		if err != nil {
@@ -144,6 +152,7 @@ func Load() error {
 			return err
 		}
 		AddCountriesRanges(localContriesRanges)
+		logger.LogInfo("Loaded %d countries from %s", len(localContriesRanges), COUNRIES_DATA_YAML_FILE)
 	}
 
 	if _, err := os.Stat(ORGANIZATIONS_DATA_YAML_FILE); err == nil {
@@ -156,6 +165,7 @@ func Load() error {
 			return err
 		}
 		AddOrganizationsRanges(localOrgRanges)
+		logger.LogInfo("Loaded %d organizations from %s", len(localOrgRanges), ORGANIZATIONS_DATA_YAML_FILE)
 	}
 
 	return nil
