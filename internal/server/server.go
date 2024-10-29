@@ -30,14 +30,14 @@ func lookupHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"country": country, "organization": organization})
 }
 
-type AddCountryRequest struct {
+type AddRequest struct {
 	IpStart string `json:"ip_start"`
 	IpEnd   string `json:"ip_end"`
 	Name    string `json:"name"`
 }
 
 func addCountryHandler(w http.ResponseWriter, r *http.Request) {
-	var data AddCountryRequest
+	var data AddRequest
 
 	err := json.NewDecoder(r.Body).Decode(&data)
 
@@ -47,10 +47,25 @@ func addCountryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ip_range.AddCountry(data.Name, utils.IpStringToInt(data.IpStart), utils.IpStringToInt(data.IpEnd))
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "OK"})
 }
 
 func addOrganizationHandler(w http.ResponseWriter, r *http.Request) {
+	var data AddRequest
 
+	err := json.NewDecoder(r.Body).Decode(&data)
+
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	ip_range.AddOrganization(data.Name, utils.IpStringToInt(data.IpStart), utils.IpStringToInt(data.IpEnd))
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "OK"})
 }
 
 func Start() {

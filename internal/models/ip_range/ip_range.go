@@ -6,7 +6,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/emirpasic/gods/utils"
 	"github.com/hightemp/ip_info_service/internal/utils"
 	"gopkg.in/yaml.v3"
 )
@@ -24,31 +23,63 @@ var (
 
 func AddCountry(name string, start uint32, end uint32) {
 	contriesRanges = append(contriesRanges, IpRange{Name: name, StartIP: start, EndIp: end})
+	SortCountriesRanges()
 }
 
 func AddOrganization(name string, start uint32, end uint32) {
 	orgRanges = append(orgRanges, IpRange{Name: name, StartIP: start, EndIp: end})
+	SortOrgRanges()
 }
 
 func AddCountriesRanges(ranges []IpRange) {
 	for _, r := range ranges {
 		contriesRanges = append(contriesRanges, r)
 	}
+	SortCountriesRanges()
 }
 
 func AddOrganizationsRanges(ranges []IpRange) {
 	for _, r := range ranges {
 		orgRanges = append(orgRanges, r)
 	}
+	SortOrgRanges()
 }
 
-func SortRanges() {
+func SortCountriesRanges() {
 	sort.Slice(contriesRanges, func(i, j int) bool {
 		return contriesRanges[i].StartIP < contriesRanges[j].StartIP
 	})
+}
+
+func SortOrgRanges() {
 	sort.Slice(orgRanges, func(i, j int) bool {
 		return orgRanges[i].StartIP < orgRanges[j].StartIP
 	})
+}
+
+func SortRanges() {
+	SortCountriesRanges()
+	SortOrgRanges()
+}
+
+func binarySearch(arr []IpRange, ipInt uint32) string {
+	var result = "Unknown"
+	left, right := uint32(0), uint32(len(arr)-1)
+
+	for right > left {
+		mid := (left + right) / 2
+		if arr[mid].StartIP <= ipInt && arr[mid].EndIp >= ipInt {
+			result = arr[mid].Name
+			break
+		}
+		if arr[mid].StartIP > ipInt {
+			right = mid - 1
+		} else {
+			left = mid + 1
+		}
+	}
+
+	return result
 }
 
 func SearchIpInfo(ipv4 string) (string, string) {
@@ -63,38 +94,12 @@ func SearchIpInfo(ipv4 string) (string, string) {
 	wg.Add(2)
 
 	go func() {
-		left, right := uint32(0), uint32(len(contriesRanges)-1)
-
-		for right > left {
-			mid := (left + right) / 2
-			if contriesRanges[mid].StartIP <= ipInt && contriesRanges[mid].EndIp >= ipInt {
-				country = contriesRanges[mid].Name
-				break
-			}
-			if contriesRanges[mid].StartIP > ipInt {
-				right = mid - 1
-			} else {
-				left = mid + 1
-			}
-		}
+		country = binarySearch(contriesRanges, ipInt)
 		wg.Done()
 	}()
 
 	go func() {
-		left, right := uint32(0), uint32(len(contriesRanges)-1)
-
-		for right > left {
-			mid := (left + right) / 2
-			if contriesRanges[mid].StartIP <= ipInt && contriesRanges[mid].EndIp >= ipInt {
-				country = contriesRanges[mid].Name
-				break
-			}
-			if contriesRanges[mid].StartIP > ipInt {
-				right = mid - 1
-			} else {
-				left = mid + 1
-			}
-		}
+		organization = binarySearch(orgRanges, ipInt)
 		wg.Done()
 	}()
 
@@ -152,8 +157,6 @@ func Load() error {
 		}
 		AddOrganizationsRanges(localOrgRanges)
 	}
-
-	SortRanges()
 
 	return nil
 }
